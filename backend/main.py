@@ -1,8 +1,8 @@
 from fastapi import FastAPI
 from fastapi import Request
 from fastapi.responses import JSONResponse
-import db_helper
-import generic_helper
+import db_functions
+import generic_functions
 
 app = FastAPI()
 inprogress_orders= {}
@@ -20,7 +20,7 @@ async def handle_request(request: Request):
     output_contexts = payload['queryResult']['outputContexts']
 
 
-    session_id = generic_helper.extract_session_id(output_contexts[0]['name'])
+    session_id = generic_functions.extract_session_id(output_contexts[0]['name'])
 
     intent_handler_dict = {
         'new.order': new_order,
@@ -55,7 +55,7 @@ def add_to_order(parameters: dict, session_id: str):
             inprogress_orders[session_id] = fooditems_to_add
 
 
-        food_and_quantity = generic_helper.get_food_and_quantity_from_dict(inprogress_orders[session_id])
+        food_and_quantity = generic_functions.get_food_and_quantity_from_dict(inprogress_orders[session_id])
 
         fulfillment_text = f"As of now, You've ordered {food_and_quantity}. Is there anything additional you'd like to include in your order?"
 
@@ -73,7 +73,7 @@ def complete_order(parameters: dict, session_id: str):
             fulfillment_text = "Sorry, I could not process your order due to backend error.\
                                 Please place a new order again"
         else:
-            order_total = db_helper.get_total_order_price(current_order_id)
+            order_total = db_functions.get_total_order_price(current_order_id)
             fulfillment_text = f"Your order has been placed. Your order_id #{current_order_id}.Your order total is {order_total}, \
             which you can pay at the time of delivery."
 
@@ -82,10 +82,10 @@ def complete_order(parameters: dict, session_id: str):
     return JSONResponse(content={"fulfillmentText": fulfillment_text})
 
 def save_to_db(order: dict):
-    next_order_id = db_helper.get_next_order_id()
+    next_order_id = db_functions.get_next_order_id()
 
     for food_item, quantity in order.items():
-        return_code = db_helper.insert_order_item(
+        return_code = db_functions.insert_order_item(
             food_item,
             quantity,
             next_order_id
@@ -94,12 +94,12 @@ def save_to_db(order: dict):
         if return_code == -1:
             return -1
 
-    db_helper.insert_order_tracking(next_order_id, "Inprogress")
+    db_functions.insert_order_tracking(next_order_id, "Inprogress")
     return next_order_id
 
 def track_order(parameters: dict, session_id: str):
     order_id = int(parameters['number'])
-    order_status = db_helper.get_order_status(order_id)
+    order_status = db_functions.get_order_status(order_id)
 
     if order_status:
         fulfillment_text = f"The order status for the order id: {order_id} is: {order_status}"
@@ -139,7 +139,7 @@ def remove_from_order(parameters: dict, session_id: str):
             fulfillment_text += "Your order is Empty"
 
         else:
-            food_and_quantity = generic_helper.get_food_and_quantity_from_dict(current_order)
+            food_and_quantity = generic_functions.get_food_and_quantity_from_dict(current_order)
             fulfillment_text += f"Now your order includes : {food_and_quantity}"
 
     return JSONResponse(content={"fulfillmentText": fulfillment_text})
